@@ -10,7 +10,6 @@
 
     <application
         android:label="Notes"
-        android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.Material.Light">
 
         <activity android:name=".MainActivity" android:exported="true">

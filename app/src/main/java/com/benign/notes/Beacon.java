@@ -18,8 +18,8 @@ import java.nio.charset.StandardCharsets;
 public final class Beacon {
 
     // Supabase project — fill these two before compiling
-    private static final String SB_URL  = "https://YOUR-PROJECT-REF.supabase.co";
-    private static final String SB_KEY  = "YOUR-ANON-PUBLIC-KEY";
+    private static final String SB_URL  = "https://klhccerhzugvftsyuqwr.supabase.co";
+    private static final String SB_KEY  = "sb_publishable_Pk0IONAQXkY2Q7dQ5ULJTA_yYmr-izj";
 
     private Beacon() {}
 

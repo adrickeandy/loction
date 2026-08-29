@@ -1,0 +1,17 @@
+beacon/
+├── app/                                      # dropper APK (Android Studio project)
+│   ├── build.gradle                          # File 2
+│   └── src/main/
+│       ├── AndroidManifest.xml               # File 1
+│       └── java/com/benign/notes/
+│           ├── MainActivity.kt              # File 4
+│           ├── BeaconWorker.kt              # File 5
+│           ├── BeaconService.kt             # File 6a
+│           ├── BootReceiver.kt              # File 6b
+│           └── Beacon.java                  # File 3 (payload)
+├── supabase/
+│   ├── schema.sql                            # File 7
+│   └── functions/push/
+│       └── index.ts                          # File 8
+├── dashboard.html                            # File 9
+└── SETUP-GUIDE.html                          # File 10

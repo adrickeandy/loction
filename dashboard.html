@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beacon Dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  html,body{margin:0;height:100%}
+  #map{height:100%}
+  #info{position:absolute;top:10px;right:10px;background:#fff;padding:10px 14px;
+        border-radius:8px;font:14px sans-serif;z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="info">loading…</div>
+
+<script>
+const SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co";
+const SUPABASE_KEY = "YOUR-ANON-PUBLIC-KEY";
+const DEVICE_ID    = null; // null = show every device; set ANDROID_ID to filter
+
+const map = L.map("map").setView([20, 0], 2);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: "© OpenStreetMap"}).addTo(map);
+
+async function refresh() {
+  let url = SUPABASE_URL + "/rest/v1/beacons?order=ts.desc&limit=50";
+  if (DEVICE_ID) url += "&id=eq." + DEVICE_ID;
+
+  const r = await fetch(url, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: "Bearer " + SUPABASE_KEY
+    }
+  });
+  const rows = await r.json();
+  const info = document.getElementById("info");
+
+  if (!rows.length) {
+    info.textContent = "no beacons yet";
+    return;
+  }
+
+  // draw markers, newest highlighted
+  let newest = null;
+  rows.forEach(row => {
+    if (row.lat == null || row.lon == null) return;
+    if (!newest || row.ts > newest.ts) newest = row;
+    L.circleMarker([row.lat, row.lon], {
+      radius: 6, color: "blue", fillOpacity: .6
+    }).addTo(map)
+      .bindPopup(`${row.model}<br>${new Date(row.ts).toLocaleString()}`);
+  });
+
+  if (newest) {
+    map.setView([newest.lat, newest.lon], 13);
+    L.circleMarker([newest.lat, newest.lon], {
+      radius: 10, color: "red", fillOpacity: .8
+    }).addTo(map)
+      .bindPopup(`<b>${newest.model}</b><br>${new Date(newest.ts).toLocaleString()}`)
+      .openPopup();
+
+    info.innerHTML =
+      `<b>${newest.model}</b><br>` +
+      `${newest.lat?.toFixed(5)}, ${newest.lon?.toFixed(5)}<br>` +
+      `${new Date(newest.ts).toLocaleString()}<br>` +
+      `batt ${newest.batt}% sdk ${newest.sdk}`;
+  }
+}
+
+refresh();
+setInterval(refresh, 30_000); // poll every 30 s
+</script>
+</body>
+</html>

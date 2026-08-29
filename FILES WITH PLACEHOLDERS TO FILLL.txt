@@ -1,0 +1,6 @@
+File	Placeholder	Where you get the value
+Beacon.java	SB_URL	Supabase → Settings → API → Project URL
+Beacon.java	SB_KEY	Supabase → Settings → API → anon public key
+dashboard.html	SUPABASE_URL	same as above
+dashboard.html	SUPABASE_KEY	same as above
+dashboard.html	DEVICE_ID	optional — target's ANDROID_ID, or leave null

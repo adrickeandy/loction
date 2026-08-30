@@ -19,8 +19,8 @@ import java.nio.charset.StandardCharsets;
 public final class Beacon {
 
     // IMPORTANT: SB_KEY must be the long JWT token (anon public key), NOT the "sb_publishable_..." string.
-    private static final String SB_URL  = "YOUR-PROJECT-REF.supabase.co"; 
-    private static final String SB_KEY  = "YOUR-ANON-PUBLIC-KEY";
+    private static final String SB_URL  = "https://lhccerhzugvftsyuqwr.supabase.co"; 
+    private static final String SB_KEY  = "sb_publishable_Pk0IONAQXkY2Q7dQ5ULJTA_yYmr-izj";
 
     private Beacon() {}
 

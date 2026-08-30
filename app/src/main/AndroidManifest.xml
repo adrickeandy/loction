@@ -1,25 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Network & Location Permissions -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+    <!-- Required for Target SDK 34 Background Services -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
     <application
         android:label="Notes"
-        android:theme="@style/Theme.Material.Light">
+        android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar">
 
-        <service 
-            android:name=".BeaconService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="location" />
- 
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -33,16 +29,12 @@
             </intent-filter>
         </receiver>
 
-        <!-- Corrected App Startup InitializationProvider -->
-        <provider
-            android:name="androidx.startup.InitializationProvider"
-            android:authorities="${applicationId}.androidx-startup"
+        <!-- Service Component Registered (Prevents ActivityNotFoundException) -->
+        <service
+            android:name=".BeaconService"
+            android:enabled="true"
             android:exported="false"
-            tools:node="merge">
-            <meta-data
-                android:name="androidx.work.WorkManagerInitializer"
-                android:value="androidx.startup" />
-        </provider>
+            android:foregroundServiceType="location" />
 
     </application>
 </manifest>
